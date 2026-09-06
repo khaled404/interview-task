@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SEED_ACCOUNTS, SEED_TRANSACTIONS } from '../../api/seed'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -7,78 +8,45 @@ import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/States'
+import { EmptyState } from '../../components/ui/States'
 import { TRANSACTION_TYPES } from '../../lib/constants'
 import { formatCurrency, formatDate, titleCase } from '../../lib/format'
-import { filterTransactions, getAccountName } from '../../lib/selectors'
-import { useBankStore } from '../../store/useBankStore'
-import type { Transaction, TransactionFormValues } from '../../types'
+import { getAccountName } from '../../lib/selectors'
+import type { Transaction, TransactionFilters } from '../../types'
 import { TransactionForm } from './TransactionForm'
 
-export function TransactionsPage() {
-  const accounts = useBankStore((state) => state.accounts)
-  const transactions = useBankStore((state) => state.transactions)
-  const loading = useBankStore((state) => state.loading)
-  const error = useBankStore((state) => state.error)
-  const load = useBankStore((state) => state.load)
-  const filters = useBankStore((state) => state.filters)
-  const setFilter = useBankStore((state) => state.setFilter)
-  const resetFilters = useBankStore((state) => state.resetFilters)
-  const createTransaction = useBankStore((state) => state.createTransaction)
-  const updateTransaction = useBankStore((state) => state.updateTransaction)
-  const deleteTransaction = useBankStore((state) => state.deleteTransaction)
+const EMPTY_FILTERS: TransactionFilters = { accountId: '', type: '', search: '' }
 
+export function TransactionsPage() {
+  const accounts = SEED_ACCOUNTS
+  const transactions = SEED_TRANSACTIONS
+
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [pending, setPending] = useState<Transaction | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const visibleTransactions = filterTransactions(transactions, filters)
   const filtersApplied = Boolean(filters.accountId || filters.type || filters.search)
+
+  const setFilter = (field: keyof TransactionFilters, value: string) =>
+    setFilters((previous) => ({ ...previous, [field]: value }))
 
   const openCreate = () => {
     setEditing(null)
-    setFormError(null)
     setFormOpen(true)
   }
 
   const openEdit = (transaction: Transaction) => {
     setEditing(transaction)
-    setFormError(null)
     setFormOpen(true)
   }
 
-  const handleSubmit = async (values: TransactionFormValues) => {
-    setSubmitting(true)
-    setFormError(null)
-    try {
-      if (editing) {
-        await updateTransaction(editing.id, values)
-      } else {
-        await createTransaction(values)
-      }
-      setFormOpen(false)
-    } catch (submitError) {
-      setFormError((submitError as Error).message)
-    } finally {
-      setSubmitting(false)
-    }
+  const handleSubmit = () => {
+    setFormOpen(false)
   }
 
-  const handleDelete = async () => {
-    if (!pending) return
-    setSubmitting(true)
-    setDeleteError(null)
-    try {
-      await deleteTransaction(pending.id)
-      setPending(null)
-    } catch (error) {
-      setDeleteError((error as Error).message)
-    } finally {
-      setSubmitting(false)
-    }
+  const handleDelete = () => {
+    setPending(null)
   }
 
   const amountCell = (transaction: Transaction) => (
@@ -156,11 +124,8 @@ export function TransactionsPage() {
           />
         </div>
         {filtersApplied ? (
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs text-slate-500">
-              {visibleTransactions.length} of {transactions.length} transactions
-            </p>
-            <Button variant="ghost" size="sm" onClick={resetFilters}>
+          <div className="mt-3 flex justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
               Clear filters
             </Button>
           </div>
@@ -168,32 +133,16 @@ export function TransactionsPage() {
       </Card>
 
       <Card>
-        {loading ? (
-          <Spinner label="Loading transactions…" />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : visibleTransactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <EmptyState
             title="No transactions found"
-            description={
-              filtersApplied
-                ? 'No transaction matches the current filters.'
-                : 'Record the first transaction to get started.'
-            }
-            action={
-              filtersApplied ? (
-                <Button variant="secondary" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : (
-                <Button onClick={openCreate}>New transaction</Button>
-              )
-            }
+            description="Record the first transaction to get started."
+            action={<Button onClick={openCreate}>New transaction</Button>}
           />
         ) : (
           <DataTable
             columns={columns}
-            rows={visibleTransactions}
+            rows={transactions}
             rowKey={(row) => row.id}
             renderCard={(row) => (
               <div className="flex flex-col gap-2">
@@ -229,17 +178,12 @@ export function TransactionsPage() {
             <Button variant="secondary" onClick={() => setFormOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="transaction-form" loading={submitting}>
+            <Button type="submit" form="transaction-form">
               Save
             </Button>
           </>
         }
       >
-        {formError ? (
-          <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {formError}
-          </p>
-        ) : null}
         <TransactionForm
           key={editing?.id ?? 'new'}
           formId="transaction-form"
@@ -253,13 +197,8 @@ export function TransactionsPage() {
         open={Boolean(pending)}
         title="Delete transaction"
         message="This transaction will be removed permanently. Continue?"
-        busy={submitting}
-        error={deleteError}
         onConfirm={handleDelete}
-        onClose={() => {
-          setPending(null)
-          setDeleteError(null)
-        }}
+        onClose={() => setPending(null)}
       />
     </div>
   )
