@@ -1,4 +1,4 @@
-# Bankly — Banking System
+# Banking System — Transactions Interview Task
 
 A small banking system built with **React + TypeScript + Vite + Tailwind CSS**. The API is mocked in the browser (`src/api/mockApi.ts`) with ~400ms of simulated latency; data resets on reload.
 
@@ -7,43 +7,82 @@ npm install
 npm run dev
 ```
 
-`TASK.md` holds the interview brief this project was built from — the version handed to a candidate has the functions listed there left unimplemented.
+## What is already done
 
-## Screens
+- **Dashboard** — complete. Stat cards, cash-flow summary, per-account breakdown and recent activity, all derived from the account and transaction data.
+- **Accounts** — complete. Full CRUD, validation, details view. Use it as the reference for everything you write.
+- **Transactions** — the UI is complete: table, mobile cards, search and filter bar, create/edit modal, delete confirmation, loading, empty and error states.
 
-**Dashboard** — total accounts, total balance, total deposits, total withdrawals, and the five most recent transactions. All derived from the live account and transaction data in `src/lib/selectors.ts`.
+**Do not change the UI.** Every screen, component and style stays as it is.
 
-**Accounts** — list, create, view details with that account's history, edit, delete. Deleting an account also removes its transactions.
+## What to implement
 
-**Transactions** — list, create, edit, delete, plus a filter bar: free-text search over description and amount, an account filter and a type filter. The three combine with AND, and a row counter and "Clear filters" button appear once a filter is active.
+Eight functions are unimplemented. The Transactions page renders and is fully clickable, but nothing it does actually works yet — filters return everything, the form accepts anything, and saving surfaces a `TODO` error.
 
-## Structure
+### 1. Filtering and search — `src/lib/selectors.ts`
 
-```
-src/
-  api/mockApi.ts     mock API + in-memory data, the only place data changes
-  api/seed.ts        seed accounts and transactions
-  lib/selectors.ts   filtering and dashboard maths (pure functions)
-  lib/validation.ts  form validation (pure functions)
-  lib/format.ts      currency, date and text formatting
-  store/             Zustand store — the single source of truth for the UI
-  components/ui/     reusable presentational components
-  features/          Accounts, Transactions, Dashboard screens
+```ts
+filterTransactions(transactions, filters)
 ```
 
-## Balance handling
+Right now it returns the list unchanged. `filters` is `{ accountId, type, search }`:
 
-Balances are derived state owned by the mock API, never by the UI:
+- an empty value means "no filter"
+- the three combine with **AND**
+- `search` is a case-insensitive match on the description; matching the amount too is a nice touch
 
-- creating a deposit adds the amount to the account, a withdrawal subtracts it
-- updating a transaction reverses the old amount first, then applies the new one — including when the transaction moves to a different account
-- deleting a transaction reverses it
-- deleting an account removes its transactions with it
+Keep it a pure function — no state, no side effects.
 
-After any transaction mutation the store refetches accounts, so balances shown in the UI always match the API.
+### 2. Validation — `src/lib/validation.ts`
 
-## Validation
+```ts
+validateTransaction(values)
+```
 
-**Account** — holder name required and at least 3 characters; account number required, digits only, at least 6; balance required and numeric; type and status required. Duplicate account numbers are rejected by the API.
+Right now it returns an empty error map, so anything submits. Return an error per invalid field:
 
-**Transaction** — account required; amount required, numeric, greater than 0; date required and not in the future; description required, at most 120 characters.
+- account — required
+- amount — required, a number greater than 0
+- date — required, not in the future
+- description — required, at most 120 characters
+
+`validateAccount` in the same file is already written — follow its shape. The form already renders whatever you return.
+
+### 3. Transaction CRUD — `src/api/mockApi.ts`
+
+```ts
+api.createTransaction(values)
+api.updateTransaction(id, values)
+api.deleteTransaction(id)
+```
+
+Rules:
+
+- Return a promise; use the existing `respond` / `reject` helpers so loading and error states behave realistically.
+- Reject with `ApiError` when the account does not exist (404) or the transaction id is unknown (404).
+- **Keep account balances correct.** A deposit adds to the account balance, a withdrawal subtracts. On update, reverse the old amount before applying the new one — and handle the transaction moving to a different account. On delete, reverse it.
+- `toTransactionPayload`, `applyBalance` and `signedAmount` are there to help. `createAccount` / `updateAccount` / `deleteAccount` show the pattern.
+
+### 4. Store actions — `src/store/useBankStore.ts`
+
+```ts
+createTransaction(values)
+updateTransaction(id, values)
+deleteTransaction(id)
+```
+
+Call the API, then keep client state in sync. Balances change on the server side, so the accounts list and the dashboard have to reflect that too — decide whether to patch state locally or reload, and be able to explain why.
+
+## Suggested order
+
+Filtering → validation → mock API → store actions. After the store actions work, the dashboard numbers should move on their own.
+
+## What we are looking for
+
+- Correct CRUD with state that stays in sync after every mutation
+- Balances that stay consistent after create, update and delete
+- Validation with useful messages, and errors surfaced in the UI
+- Clean, readable TypeScript — no `any`, no duplicated logic
+- The existing design left intact
+
+Short notes on anything you would do differently with more time are welcome.

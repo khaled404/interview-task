@@ -49,7 +49,18 @@ export interface TransactionFilters {
 
 export interface DashboardStats {
   totalAccounts: number
+  activeAccounts: number
   totalBalance: number
   totalDeposits: number
   totalWithdrawals: number
+  depositCount: number
+  withdrawalCount: number
+  netFlow: number
+}
+
+export interface AccountSummary {
+  account: Account
+  transactionCount: number
+  deposits: number
+  withdrawals: number
 }

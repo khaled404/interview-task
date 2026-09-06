@@ -1,5 +1,6 @@
 import type {
   Account,
+  AccountSummary,
   DashboardStats,
   Transaction,
   TransactionFilters,
@@ -9,40 +10,30 @@ export function filterTransactions(
   transactions: Transaction[],
   filters: TransactionFilters,
 ): Transaction[] {
-  const search = filters.search.trim().toLowerCase()
-
-  return transactions.filter((transaction) => {
-    if (filters.accountId && transaction.accountId !== filters.accountId) {
-      return false
-    }
-
-    if (filters.type && transaction.type !== filters.type) {
-      return false
-    }
-
-    if (search) {
-      const haystack = `${transaction.description} ${transaction.amount}`.toLowerCase()
-      if (!haystack.includes(search)) return false
-    }
-
-    return true
-  })
+  return transactions
 }
 
 export function getDashboardStats(
   accounts: Account[],
   transactions: Transaction[],
 ): DashboardStats {
-  const sumAmounts = (type: Transaction['type']) =>
-    transactions
-      .filter((transaction) => transaction.type === type)
-      .reduce((total, transaction) => total + transaction.amount, 0)
+  const deposits = transactions.filter((transaction) => transaction.type === 'deposit')
+  const withdrawals = transactions.filter(
+    (transaction) => transaction.type === 'withdrawal',
+  )
+
+  const totalDeposits = sumAmount(deposits)
+  const totalWithdrawals = sumAmount(withdrawals)
 
   return {
     totalAccounts: accounts.length,
+    activeAccounts: accounts.filter((account) => account.status === 'active').length,
     totalBalance: accounts.reduce((total, account) => total + account.balance, 0),
-    totalDeposits: sumAmounts('deposit'),
-    totalWithdrawals: sumAmounts('withdrawal'),
+    totalDeposits,
+    totalWithdrawals,
+    depositCount: deposits.length,
+    withdrawalCount: withdrawals.length,
+    netFlow: totalDeposits - totalWithdrawals,
   }
 }
 
@@ -51,13 +42,34 @@ export function getRecentTransactions(
   limit = 5,
 ): Transaction[] {
   return [...transactions]
-    .sort((a, b) => {
-      if (a.date !== b.date) return a.date < b.date ? 1 : -1
-      return a.id < b.id ? 1 : -1
-    })
+    .sort((a, b) => (a.date === b.date ? b.id.localeCompare(a.id) : a.date < b.date ? 1 : -1))
     .slice(0, limit)
+}
+
+export function getAccountSummaries(
+  accounts: Account[],
+  transactions: Transaction[],
+): AccountSummary[] {
+  return accounts
+    .map((account) => {
+      const owned = transactions.filter(
+        (transaction) => transaction.accountId === account.id,
+      )
+
+      return {
+        account,
+        transactionCount: owned.length,
+        deposits: sumAmount(owned.filter((item) => item.type === 'deposit')),
+        withdrawals: sumAmount(owned.filter((item) => item.type === 'withdrawal')),
+      }
+    })
+    .sort((a, b) => b.account.balance - a.account.balance)
 }
 
 export function getAccountName(accounts: Account[], accountId: string): string {
   return accounts.find((account) => account.id === accountId)?.holderName ?? 'Unknown'
+}
+
+function sumAmount(transactions: Transaction[]): number {
+  return transactions.reduce((total, transaction) => total + transaction.amount, 0)
 }
