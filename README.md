@@ -1,74 +1,92 @@
-# Banking System — Frontend Interview Task
+# Banking System — Transactions Interview Task
 
-A small banking system built with **React + TypeScript + Vite + Tailwind CSS**, with a **mock API** that runs entirely in the browser (`src/api/mockApi.ts`, ~400ms simulated latency, resets on reload).
-
-Runs on StackBlitz with no setup. Locally:
+A small banking system built with **React + TypeScript + Vite + Tailwind CSS**. The API is mocked in the browser (`src/api/mockApi.ts`) with ~400ms of simulated latency; data resets on reload.
 
 ```bash
 npm install
 npm run dev
 ```
 
-## What is already built
+## Scope
 
-- **Dashboard** — stat cards and recent activity
-- **Accounts** — list, create, view details, edit, delete
-- **Transactions** — list, filter by account and type, create, edit, delete
-- Reusable UI kit in `src/components/ui` (Button, Input, Select, Field, Modal, ConfirmDialog, DataTable, Badge, Card, loading / empty / error states)
-- Global state in `src/store/useBankStore.ts` (Zustand)
+The **Accounts** page is finished and works end to end — treat it as the reference for everything you write.
 
-## Your task
+Your work is the **Transactions** page and the **Dashboard**. All the UI already exists; do not redesign it. Use the components in `src/components/ui` and keep the current layout, styling and behaviour.
 
-Nine functions are unimplemented. Each one throws `TODO: implement …`, so the app tells you where you are. Implement all of them.
+## What to implement
 
-| # | File | Function | What it must do |
-| --- | --- | --- | --- |
-| 1 | `src/lib/validation.ts` | `validateAccount` | Return a map of field errors for the account form |
-| 2 | `src/lib/validation.ts` | `validateTransaction` | Return a map of field errors for the transaction form |
-| 3 | `src/lib/selectors.ts` | `getDashboardStats` | Total accounts, total balance, total deposits, total withdrawals |
-| 4 | `src/api/mockApi.ts` | `api.updateAccount` | Update the stored account and resolve with it |
-| 5 | `src/api/mockApi.ts` | `api.deleteAccount` | Remove the account and its transactions |
-| 6 | `src/api/mockApi.ts` | `api.updateTransaction` | Update the transaction and keep the account balance correct |
-| 7 | `src/store/useBankStore.ts` | `updateAccount` | Call the API and sync state after the mutation |
-| 8 | `src/store/useBankStore.ts` | `deleteAccount` | Call the API and sync state after the mutation |
-| 9 | `src/store/useBankStore.ts` | `updateTransaction` | Call the API and sync state after the mutation |
+Eight functions throw `TODO: implement …`. Do them in this order — each one unblocks the next screen.
 
-Suggested order: validation → dashboard stats → mock API → store actions.
+### 1. Filtering and search — `src/lib/selectors.ts`
 
-### Validation rules
+```ts
+filterTransactions(transactions, filters)
+```
 
-**Account**
+`filters` is `{ accountId, type, search }`. An empty value means "no filter"; the three combine with AND. `search` is a case-insensitive match on the description (matching the amount as well is a nice touch). This is a pure function — no state, no side effects.
 
-- holder name — required, at least 3 characters
-- account number — required, digits only, at least 6 digits
-- balance — required, a valid number
-- type and status — required
+The Transactions page will not render until this returns a value.
 
-**Transaction**
+### 2. Validation — `src/lib/validation.ts`
+
+```ts
+validateTransaction(values)
+```
+
+Return a map of field errors:
 
 - account — required
 - amount — required, a number greater than 0
 - date — required, not in the future
 - description — required, at most 120 characters
 
-### API rules
+`validateAccount` in the same file is already written — follow its shape.
 
-- `updateAccount` must reject with an `ApiError` if another account already uses the same account number.
-- `deleteAccount` must also remove that account's transactions.
-- `updateTransaction` must keep balances consistent: reverse the old amount, then apply the new one. Look at `createTransaction` and `deleteTransaction` for the pattern.
-- Every method returns a promise and uses the existing `respond` / `reject` helpers so loading and error states stay realistic.
+### 3. Transaction CRUD — `src/api/mockApi.ts`
 
-### Bonus (only if you have time)
+```ts
+api.createTransaction(values)
+api.updateTransaction(id, values)
+api.deleteTransaction(id)
+```
 
-Block a withdrawal that would push a `checking` account below zero, and surface that error in the transaction form.
+Rules:
+
+- Return a promise; use the existing `respond` / `reject` helpers so loading and error states behave realistically.
+- Reject with `ApiError` when the account does not exist (404) or the transaction id is unknown (404).
+- **Keep account balances correct.** A deposit adds to the account balance, a withdrawal subtracts. On update, reverse the old amount before applying the new one — and handle the transaction moving to a different account. On delete, reverse it.
+- `toTransactionPayload`, `applyBalance` and `signedAmount` are there to help. `createAccount` / `updateAccount` / `deleteAccount` show the pattern.
+
+### 4. Store actions — `src/store/useBankStore.ts`
+
+```ts
+createTransaction(values)
+updateTransaction(id, values)
+deleteTransaction(id)
+```
+
+Call the API, then keep client state in sync. Balances change on the server side, so the accounts list has to reflect that too — decide whether to patch state locally or reload, and be able to explain why.
+
+### 5. Dashboard — `src/lib/selectors.ts`
+
+```ts
+getDashboardStats(accounts, transactions)
+getRecentTransactions(transactions, limit)
+```
+
+- `totalAccounts` — number of accounts
+- `totalBalance` — sum of account balances
+- `totalDeposits` — sum of deposit amounts
+- `totalWithdrawals` — sum of withdrawal amounts
+- `getRecentTransactions` — the newest transactions first, capped at `limit`
 
 ## What we are looking for
 
 - Correct CRUD with state that stays in sync after every mutation
-- Real form validation and useful error messages
-- Loading, empty and error states handled everywhere
-- Reusable components, no copy-pasted logic
-- Clean, readable TypeScript — no `any`
-- The UI stays responsive on mobile
+- Balances that stay consistent after create, update and delete
+- Validation with useful messages, and errors surfaced in the UI
+- Loading, empty and error states that behave
+- Clean, readable TypeScript — no `any`, no duplicated logic
+- The existing design left intact
 
-Notes on trade-offs or anything you would do differently with more time are welcome in a short comment when you submit.
+Short notes on anything you would do differently with more time are welcome.

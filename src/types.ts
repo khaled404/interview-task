@@ -44,6 +44,7 @@ export type FormErrors<T> = Partial<Record<keyof T, string>>
 export interface TransactionFilters {
   accountId: string
   type: string
+  search: string
 }
 
 export interface DashboardStats {

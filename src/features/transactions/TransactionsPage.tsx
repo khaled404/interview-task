@@ -5,11 +5,12 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { EmptyState, ErrorState, Spinner } from '../../components/ui/States'
 import { TRANSACTION_TYPES } from '../../lib/constants'
 import { formatCurrency, formatDate, titleCase } from '../../lib/format'
-import { getAccountName } from '../../lib/selectors'
+import { filterTransactions, getAccountName } from '../../lib/selectors'
 import { useBankStore } from '../../store/useBankStore'
 import type { Transaction, TransactionFormValues } from '../../types'
 import { TransactionForm } from './TransactionForm'
@@ -20,10 +21,9 @@ export function TransactionsPage() {
   const loading = useBankStore((state) => state.loading)
   const error = useBankStore((state) => state.error)
   const load = useBankStore((state) => state.load)
-  const accountFilter = useBankStore((state) => state.accountFilter)
-  const typeFilter = useBankStore((state) => state.typeFilter)
-  const setAccountFilter = useBankStore((state) => state.setAccountFilter)
-  const setTypeFilter = useBankStore((state) => state.setTypeFilter)
+  const filters = useBankStore((state) => state.filters)
+  const setFilter = useBankStore((state) => state.setFilter)
+  const resetFilters = useBankStore((state) => state.resetFilters)
   const createTransaction = useBankStore((state) => state.createTransaction)
   const updateTransaction = useBankStore((state) => state.updateTransaction)
   const deleteTransaction = useBankStore((state) => state.deleteTransaction)
@@ -34,6 +34,9 @@ export function TransactionsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const visibleTransactions = filterTransactions(transactions, filters)
+  const filtersApplied = Boolean(filters.accountId || filters.type || filters.search)
 
   const openCreate = () => {
     setEditing(null)
@@ -127,25 +130,41 @@ export function TransactionsPage() {
       />
 
       <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Input
+            aria-label="Search transactions"
+            value={filters.search}
+            placeholder="Search description or amount"
+            onChange={(event) => setFilter('search', event.target.value)}
+          />
           <Select
             aria-label="Filter by account"
-            value={accountFilter}
+            value={filters.accountId}
             placeholder="All accounts"
             options={accounts.map((account) => ({
               value: account.id,
               label: account.holderName,
             }))}
-            onChange={(event) => setAccountFilter(event.target.value)}
+            onChange={(event) => setFilter('accountId', event.target.value)}
           />
           <Select
             aria-label="Filter by type"
-            value={typeFilter}
+            value={filters.type}
             placeholder="All types"
             options={TRANSACTION_TYPES}
-            onChange={(event) => setTypeFilter(event.target.value)}
+            onChange={(event) => setFilter('type', event.target.value)}
           />
         </div>
+        {filtersApplied ? (
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              {visibleTransactions.length} of {transactions.length} transactions
+            </p>
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              Clear filters
+            </Button>
+          </div>
+        ) : null}
       </Card>
 
       <Card>
@@ -153,16 +172,28 @@ export function TransactionsPage() {
           <Spinner label="Loading transactions…" />
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
-        ) : transactions.length === 0 ? (
+        ) : visibleTransactions.length === 0 ? (
           <EmptyState
             title="No transactions found"
-            description="Clear the filters or record a new transaction."
-            action={<Button onClick={openCreate}>New transaction</Button>}
+            description={
+              filtersApplied
+                ? 'No transaction matches the current filters.'
+                : 'Record the first transaction to get started.'
+            }
+            action={
+              filtersApplied ? (
+                <Button variant="secondary" onClick={resetFilters}>
+                  Clear filters
+                </Button>
+              ) : (
+                <Button onClick={openCreate}>New transaction</Button>
+              )
+            }
           />
         ) : (
           <DataTable
             columns={columns}
-            rows={transactions}
+            rows={visibleTransactions}
             rowKey={(row) => row.id}
             renderCard={(row) => (
               <div className="flex flex-col gap-2">

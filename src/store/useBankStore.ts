@@ -4,6 +4,7 @@ import type {
   Account,
   AccountFormValues,
   Transaction,
+  TransactionFilters,
   TransactionFormValues,
 } from '../types'
 
@@ -12,8 +13,7 @@ interface BankState {
   transactions: Transaction[]
   loading: boolean
   error: string | null
-  accountFilter: string
-  typeFilter: string
+  filters: TransactionFilters
 
   load: () => Promise<void>
   createAccount: (values: AccountFormValues) => Promise<void>
@@ -22,24 +22,25 @@ interface BankState {
   createTransaction: (values: TransactionFormValues) => Promise<void>
   updateTransaction: (id: string, values: TransactionFormValues) => Promise<void>
   deleteTransaction: (id: string) => Promise<void>
-  setAccountFilter: (value: string) => void
-  setTypeFilter: (value: string) => void
+  setFilter: (field: keyof TransactionFilters, value: string) => void
+  resetFilters: () => void
 }
+
+const EMPTY_FILTERS: TransactionFilters = { accountId: '', type: '', search: '' }
 
 export const useBankStore = create<BankState>((set, get) => ({
   accounts: [],
   transactions: [],
   loading: false,
   error: null,
-  accountFilter: '',
-  typeFilter: '',
+  filters: EMPTY_FILTERS,
 
   load: async () => {
     set({ loading: true, error: null })
     try {
       const [accounts, transactions] = await Promise.all([
         api.listAccounts(),
-        api.listTransactions({ accountId: get().accountFilter, type: get().typeFilter }),
+        api.listTransactions(),
       ])
       set({ accounts, transactions })
     } catch (error) {
@@ -55,16 +56,24 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   updateAccount: async (id, values) => {
-    throw new Error('TODO: implement store.updateAccount')
+    const updated = await api.updateAccount(id, values)
+    set((state) => ({
+      accounts: state.accounts.map((account) => (account.id === id ? updated : account)),
+    }))
   },
 
   deleteAccount: async (id) => {
-    throw new Error('TODO: implement store.deleteAccount')
+    await api.deleteAccount(id)
+    set((state) => ({
+      accounts: state.accounts.filter((account) => account.id !== id),
+      transactions: state.transactions.filter(
+        (transaction) => transaction.accountId !== id,
+      ),
+    }))
   },
 
   createTransaction: async (values) => {
-    await api.createTransaction(values)
-    await get().load()
+    throw new Error('TODO: implement store.createTransaction')
   },
 
   updateTransaction: async (id, values) => {
@@ -72,17 +81,11 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   deleteTransaction: async (id) => {
-    await api.deleteTransaction(id)
-    await get().load()
+    throw new Error('TODO: implement store.deleteTransaction')
   },
 
-  setAccountFilter: (value) => {
-    set({ accountFilter: value })
-    void get().load()
-  },
+  setFilter: (field, value) =>
+    set((state) => ({ filters: { ...state.filters, [field]: value } })),
 
-  setTypeFilter: (value) => {
-    set({ typeFilter: value })
-    void get().load()
-  },
+  resetFilters: () => set({ filters: EMPTY_FILTERS }),
 }))

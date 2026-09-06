@@ -1,3 +1,4 @@
+import { ACCOUNT_NUMBER_PATTERN } from './constants'
 import type {
   AccountFormValues,
   FormErrors,
@@ -7,7 +8,35 @@ import type {
 export function validateAccount(
   values: AccountFormValues,
 ): FormErrors<AccountFormValues> {
-  throw new Error('TODO: implement validateAccount')
+  const errors: FormErrors<AccountFormValues> = {}
+
+  if (!values.holderName.trim()) {
+    errors.holderName = 'Account holder name is required'
+  } else if (values.holderName.trim().length < 3) {
+    errors.holderName = 'Use at least 3 characters'
+  }
+
+  if (!values.accountNumber.trim()) {
+    errors.accountNumber = 'Account number is required'
+  } else if (!ACCOUNT_NUMBER_PATTERN.test(values.accountNumber.trim())) {
+    errors.accountNumber = 'Use digits only, at least 6 of them'
+  }
+
+  if (!values.balance.trim()) {
+    errors.balance = 'Balance is required'
+  } else if (Number.isNaN(Number(values.balance))) {
+    errors.balance = 'Balance must be a number'
+  }
+
+  if (!values.type) {
+    errors.type = 'Account type is required'
+  }
+
+  if (!values.status) {
+    errors.status = 'Status is required'
+  }
+
+  return errors
 }
 
 export function validateTransaction(
