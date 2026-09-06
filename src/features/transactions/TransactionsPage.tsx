@@ -23,7 +23,6 @@ export function TransactionsPage() {
 
   const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS)
   const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<Transaction | null>(null)
   const [pending, setPending] = useState<Transaction | null>(null)
 
   const filtersApplied = Boolean(filters.accountId || filters.type || filters.search)
@@ -32,12 +31,6 @@ export function TransactionsPage() {
     setFilters((previous) => ({ ...previous, [field]: value }))
 
   const openCreate = () => {
-    setEditing(null)
-    setFormOpen(true)
-  }
-
-  const openEdit = (transaction: Transaction) => {
-    setEditing(transaction)
     setFormOpen(true)
   }
 
@@ -78,7 +71,7 @@ export function TransactionsPage() {
       header: '',
       render: (row) => (
         <div className="flex justify-end gap-1">
-          <Button variant="secondary" size="sm" onClick={() => openEdit(row)}>
+          <Button variant="secondary" size="sm">
             Edit
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setPending(row)}>
@@ -156,7 +149,7 @@ export function TransactionsPage() {
                   {amountCell(row)}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => openEdit(row)}>
+                  <Button variant="secondary" size="sm">
                     Edit
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setPending(row)}>
@@ -171,7 +164,7 @@ export function TransactionsPage() {
 
       <Modal
         open={formOpen}
-        title={editing ? 'Edit transaction' : 'New transaction'}
+        title="New transaction"
         onClose={() => setFormOpen(false)}
         footer={
           <>
@@ -185,10 +178,10 @@ export function TransactionsPage() {
         }
       >
         <TransactionForm
-          key={editing?.id ?? 'new'}
+          key="new"
           formId="transaction-form"
           accounts={accounts}
-          transaction={editing}
+          transaction={null}
           onSubmit={handleSubmit}
         />
       </Modal>
