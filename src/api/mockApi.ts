@@ -130,14 +130,54 @@ export const api = {
   },
 
   createTransaction(values: TransactionFormValues): Promise<Transaction> {
-    throw new Error('TODO: implement api.createTransaction')
+    const payload = toTransactionPayload(values)
+
+    if (!accounts.some((account) => account.id === payload.accountId)) {
+      return reject('Account not found', 404)
+    }
+
+    const transaction: Transaction = { id: nextId('txn'), ...payload }
+
+    transactions = [...transactions, transaction]
+    applyBalance(payload.accountId, signedAmount(payload))
+
+    return respond(transaction)
   },
 
   updateTransaction(id: string, values: TransactionFormValues): Promise<Transaction> {
-    throw new Error('TODO: implement api.updateTransaction')
+    const existing = transactions.find((transaction) => transaction.id === id)
+
+    if (!existing) {
+      return reject('Transaction not found', 404)
+    }
+
+    const payload = toTransactionPayload(values)
+
+    if (!accounts.some((account) => account.id === payload.accountId)) {
+      return reject('Account not found', 404)
+    }
+
+    applyBalance(existing.accountId, -signedAmount(existing))
+    applyBalance(payload.accountId, signedAmount(payload))
+
+    const updated: Transaction = { ...existing, ...payload }
+    transactions = transactions.map((transaction) =>
+      transaction.id === id ? updated : transaction,
+    )
+
+    return respond(updated)
   },
 
   deleteTransaction(id: string): Promise<void> {
-    throw new Error('TODO: implement api.deleteTransaction')
+    const existing = transactions.find((transaction) => transaction.id === id)
+
+    if (!existing) {
+      return reject('Transaction not found', 404)
+    }
+
+    transactions = transactions.filter((transaction) => transaction.id !== id)
+    applyBalance(existing.accountId, -signedAmount(existing))
+
+    return respond(undefined)
   },
 }

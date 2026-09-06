@@ -73,15 +73,29 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   createTransaction: async (values) => {
-    throw new Error('TODO: implement store.createTransaction')
+    const created = await api.createTransaction(values)
+    const accounts = await api.listAccounts()
+    set((state) => ({ transactions: [...state.transactions, created], accounts }))
   },
 
   updateTransaction: async (id, values) => {
-    throw new Error('TODO: implement store.updateTransaction')
+    const updated = await api.updateTransaction(id, values)
+    const accounts = await api.listAccounts()
+    set((state) => ({
+      transactions: state.transactions.map((transaction) =>
+        transaction.id === id ? updated : transaction,
+      ),
+      accounts,
+    }))
   },
 
   deleteTransaction: async (id) => {
-    throw new Error('TODO: implement store.deleteTransaction')
+    await api.deleteTransaction(id)
+    const accounts = await api.listAccounts()
+    set((state) => ({
+      transactions: state.transactions.filter((transaction) => transaction.id !== id),
+      accounts,
+    }))
   },
 
   setFilter: (field, value) =>

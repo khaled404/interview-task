@@ -1,4 +1,5 @@
 import { ACCOUNT_NUMBER_PATTERN } from './constants'
+import { today } from './format'
 import type {
   AccountFormValues,
   FormErrors,
@@ -42,7 +43,35 @@ export function validateAccount(
 export function validateTransaction(
   values: TransactionFormValues,
 ): FormErrors<TransactionFormValues> {
-  throw new Error('TODO: implement validateTransaction')
+  const errors: FormErrors<TransactionFormValues> = {}
+
+  if (!values.accountId) {
+    errors.accountId = 'Select an account'
+  }
+
+  const amount = Number(values.amount)
+
+  if (!values.amount.trim()) {
+    errors.amount = 'Amount is required'
+  } else if (Number.isNaN(amount)) {
+    errors.amount = 'Amount must be a number'
+  } else if (amount <= 0) {
+    errors.amount = 'Amount must be greater than 0'
+  }
+
+  if (!values.date) {
+    errors.date = 'Date is required'
+  } else if (values.date > today()) {
+    errors.date = 'Date cannot be in the future'
+  }
+
+  if (!values.description.trim()) {
+    errors.description = 'Description is required'
+  } else if (values.description.trim().length > 120) {
+    errors.description = 'Keep the description under 120 characters'
+  }
+
+  return errors
 }
 
 export function isValid<T>(errors: FormErrors<T>): boolean {
